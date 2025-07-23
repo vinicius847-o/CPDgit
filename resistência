@@ -1,0 +1,314 @@
+from typing import List, Dict, Tuple
+import math
+import statistics
+
+def estimar_dosagem_concreto(fck_desejado_mpa: float, abatimento_cm: float = 10.0) -> Dict [str, float]:
+    """
+    Estima as proporções de materiais (cimento, areia, brita, água, aditivo)
+    para atingir um fck desejado, com base em premissas simplificadas de normas
+    e práticas comuns da NBR 12655.
+
+    Parâmetros:
+        fck_desejado_mpa (float): O FCK (Resistência Característica do Concreto)
+                                   desejado em MPa.
+        abatimento_cm (float): Abatimento (slump) desejado em cm (consistência do concreto).
+                               Valores típicos: 5-10 cm para concreto convencional,
+                               10-15 cm para bombeável, >15 cm para autoadensável.
+
+    Retorna:
+        Dict[str, float]: Um dicionário com as proporções estimadas dos materiais por m³ de concreto.
+    """
+    print("\n" + "="*60)
+    print(" **INICIANDO ESTIMATIVA DE DOSAGEM ** ")
+    print("="*60)
+    print(f"**OBJETIVO:** FCK de **{fck_desejado_mpa:.2f} MPa** com abatimento de **{abatimento_cm:.1f} cm**\n")
+
+    # --- 1. Relação Água/Cimento (a/c) Máxima Permitida (NBR 12655 - Tabela 5) ---
+    # Valores de referência para fck e a/c máximos para garantir durabilidade e resistência.
+    # Estes são valores de referência e variam com o tipo de cimento e agregado.
+    if fck_desejado_mpa <= 20:
+        relacao_ac_base = 0.65
+    elif fck_desejado_mpa <= 25:
+        relacao_ac_base = 0.60
+    elif fck_desejado_mpa <= 30:
+        relacao_ac_base = 0.55
+    elif fck_desejado_mpa <= 35:
+        relacao_ac_base = 0.50
+    elif fck_desejado_mpa <= 40:
+        relacao_ac_base = 0.45
+    else: # Para fck > 40 MPa, geralmente exigem a/c bem menores e uso intensivo de aditivos
+        relacao_ac_base = 0.40
+        print(" **ATENÇÃO:** Para FCKs acima de 40 MPa, a relação a/c é crítica e o uso de aditivos superplastificantes é mandatório.")
+
+    print(f"1. **Relação Água/Cimento (a/c) Baseada em FCK Desejado:** {relacao_ac_base:.2f}")
+
+    # --- 2. Consumo de Água para Abatimento Desejado (Litros/m³) ---
+    # Valores de consumo de água são altamente dependentes do abatimento desejado
+    # e da dimensão máxima do agregado. Estes são valores APENAS de referência.
+    # Para agregado com Dmax = 19mm (Brita 1), assumindo concreto sem aditivos iniciais.
+    # (Valores adaptados de tabelas de dosagem, variam bastante na prática)
+    if abatimento_cm <= 5:
+        consumo_agua_litros = 175.0
+    elif abatimento_cm <= 10:
+        consumo_agua_litros = 190.0 # Valor típico para concreto convencional
+    elif abatimento_cm <= 15:
+        consumo_agua_litros = 205.0
+    else: # Para abatimentos maiores (autoadensável), aditivos são essenciais
+        consumo_agua_litros = 220.0
+        print(" **AVISO:** Abatimento muito alto sem aditivo pode comprometer a resistência.")
+
+    print(f"2. **Consumo de Água Estimado para Abatimento {abatimento_cm:.1f} cm:** {consumo_agua_litros:.1f} L/m³")
+
+    # --- 3. Consumo de Cimento (kg/m³) ---
+    # Consumo de cimento é diretamente ligado ao consumo de água e a/c.
+    consumo_cimento_kg = consumo_agua_litros / relacao_ac_base
+    print(f"3. **Consumo de Cimento Estimado:** {consumo_agua_litros:.1f} L / {relacao_ac_base:.2f} = **{consumo_cimento_kg:.2f} kg/m³**")
+
+    # --- 4. Consumo de Aditivos (kg/m³) ---
+    # Para concretos com fck > 25 MPa ou com abatimentos maiores, o uso de aditivos
+    # (plastificantes/superplastificantes) é quase sempre necessário para otimizar
+    # a relação a/c e a trabalhabilidade. Dosagem como % da massa de cimento.
+    dosagem_aditivo_porcentagem= 0.0 # Inicialmente zero
+
+    if fck_desejado_mpa > 25 or abatimento_cm > 10:
+        dosagem_aditivo_porcentagem = 0.008 # Exemplo: 0.8% de aditivo plastificante/redutor de água
+        print(f"4. **Necessidade de Aditivo:** Recomenda-se aditivo devido ao FCK/Abatimento.")
+    
+    consumo_aditivo_kg = consumo_cimento_kg * dosagem_aditivo_porcentagem
+    print(f"   Consumo de Aditivo Estimado (assumindo {dosagem_aditivo_porcentagem*100:.1f}% do cimento): **{consumo_aditivo_kg:.3f} kg/m³**")
+
+    # --- 5. Massa Específica Aparente Seca dos Agregados (Referência NBR 12655) ---
+    # Estes são valores médios. Na prática, devem ser determinados em laboratório.
+    massa_especifica_areia = 1550 # kg/m³
+    massa_especifica_brita = 1450 # kg/m³
+    
+    print("\n5. **Massas Específicas Aparente Secas dos Agregados:**")
+    print(f"   Areia: {massa_especifica_areia} kg/m³")
+    print(f"   Brita: {massa_especifica_brita} kg/m³")
+
+    # --- 6. Volumes Absolutos (em m³) ---
+    # Calcula os volumes absolutos dos materiais já definidos para 1m³ de concreto.
+    # Cimento (considerando massa específica de ~3100 kg/m³ para o grão)
+    volume_cimento_m3 = consumo_cimento_kg / 3100.0
+    volume_agua_m3 = consumo_agua_litros / 1000.0 # 1L = 1kg, 1000kg/m³
+
+    print("\n6. **Cálculo dos Volumes Absolutos Ocupados:**")
+    print(f"   Volume de Cimento: {volume_cimento_m3:.4f} m³")
+    print(f"   Volume de Água: {volume_agua_m3:.4f} m³")
+
+    # Volume total que Areia e Brita devem preencher (assumindo 2% de ar incorporado)
+    volume_total_agregados_m3 = 1.0 - volume_cimento_m3 - volume_agua_m3 - 0.02 # Subtrai 2% de ar
+    print(f"   Volume restante para Agregados (1 m³ - V_cimento - V_agua - V_ar): {volume_total_agregados_m3:.4f} m³")
+
+    # --- 7. Proporção entre Agregado Miúdo (Areia) e Agregado Graúdo (Brita) ---
+    # Essa proporção (m/m+g) varia com a dimensão máxima do agregado, tipo de concreto, etc.
+    # Para concreto bombeável ou mais fluído, um pouco mais de areia.
+    # Para 19mm (Brita 1), um valor comum está entre 0.40 e 0.50. Vamos usar 0.45 como base.
+    proporcao_areia_sobre_agregados_totais = 0.45
+
+    if fck_desejado_mpa > 30: # Para concretos de alta resistência, menor teor de finos pode ser otimizado
+        proporcao_areia_sobre_agregados_totais = 0.40
+    if abatimento_cm > 12: # Para alta fluidez, um pouco mais de areia pode ajudar
+        proporcao_areia_sobre_agregados_totais = 0.50
+
+    volume_areia_m3 = volume_total_agregados_m3 * proporcao_areia_sobre_agregados_totais
+    volume_brita_m3 = volume_total_agregados_m3 * (1 - proporcao_areia_sobre_agregados_totais)
+
+    print(f"\n7. **Divisão do Volume de Agregados (Areia vs. Brita):**")
+    print(f"   Proporção Areia / (Areia + Brita) assumida: {proporcao_areia_sobre_agregados_totais:.2f}")
+    print(f"   Volume de Areia: {volume_areia_m3:.4f} m³")
+    print(f"   Volume de Brita: {volume_brita_m3:.4f} m³")
+
+    # --- 8. Consumo de Agregados em Massa (kg/m³) ---
+    consumo_areia_kg = volume_areia_m3 * massa_especifica_areia
+    consumo_brita_kg = volume_brita_m3 * massa_especifica_brita
+
+    print("\n8. **Consumo Final de Agregados em Massa:**")
+    print(f"   Areia: **{consumo_areia_kg:.2f} kg/m³**")
+    print(f"   Brita: **{consumo_brita_kg:.2f} kg/m³**")
+
+    # --- 9. Resumo da Dosagem Estimada (para 1 m³ de concreto) ---
+    dosagem_estimada = {
+        "cimento_kg_m3": consumo_cimento_kg,
+        "agua_litros_m3": consumo_agua_litros,
+        "areia_kg_m3": consumo_areia_kg,
+        "brita_kg_m3": consumo_brita_kg,
+        "aditivo_kg_m3": consumo_aditivo_kg,
+        "relacao_agua_cimento_calculada": relacao_ac_base # É a relação a/c que foi usada como base
+    }
+
+    print("\n" + "-"*60)
+    print(" **RESUMO DA DOSAGEM ESTIMADA PARA 1 M³ DE CONCRETO**")
+    print("-" * 60)
+    print(f"  **FCK Desejado:** {fck_desejado_mpa:.2f} MPa")
+    print(f"  **Abatimento Desejado:** {abatimento_cm:.1f} cm\n")
+    print(f"  **Cimento:** **{dosagem_estimada['cimento_kg_m3']:.2f} kg**")
+    print(f"  **Água:** **{dosagem_estimada['agua_litros_m3']:.2f} L**")
+    print(f"  **Areia:** **{dosagem_estimada['areia_kg_m3']:.2f} kg**")
+    print(f"  **Brita:** **{dosagem_estimada['brita_kg_m3']:.2f} kg**")
+    print(f"  **Aditivo:** **{dosagem_estimada['aditivo_kg_m3']:.3f} kg** ({dosagem_aditivo_porcentagem*100:.1f}% do cimento)")
+    print(f"  **Relação Água/Cimento (a/c) Base:** {dosagem_estimada['relacao_agua_cimento_calculada']:.2f}")
+    print("="*60 + "\n")
+
+    return dosagem_estimada
+
+
+def calcular_resistencia_concreto(
+    cargas_kN: List[float],
+    diametro_mm: float,
+    tipo_corpo: str = "cilindro",
+    idade_dias: int = 28,
+    fck_projeto: float = 30.0
+) -> Tuple[List[float], float, float]:
+    """
+    Calcula resistências à compressão em corpos de prova e avalia o desempenho
+    do traço em relação ao fck do projeto.
+
+    Parâmetros:
+        cargas_kN (List[float]): Lista de cargas de ruptura dos corpos de prova (em kN).
+        diametro_mm (float): Diâmetro da base do corpo de prova (em mm).
+        tipo_corpo (str): 'cilindro' (default, 15x30 cm) ou 'cubo' (ex: 15x15x15 cm).
+        idade_dias (int): Idade dos corpos no ensaio (comuns: 7, 14, 28 dias).
+        fck_projeto (float): fck definido em projeto para comparação.
+
+    Retorna:
+        Tuple: (resistências individuais em MPa, fcm, fck estimado)
+    """
+
+    # === 1. Validações Iniciais ===
+    if not cargas_kN or not all(isinstance(c, (int, float)) and c > 0 for c in cargas_kN):
+        raise ValueError("A lista de cargas deve conter valores numéricos positivos.")
+    if diametro_mm <= 0:
+        raise ValueError("O diâmetro/lado do corpo de prova deve ser maior que zero.")
+    if tipo_corpo.lower() not in ['cilindro', 'cubo']:
+        raise ValueError("Tipo de corpo deve ser 'cilindro' ou 'cubo'.")
+    if idade_dias <= 0:
+        raise ValueError("A idade do corpo de prova deve ser maior que zero.")
+    if fck_projeto <= 0:
+        raise ValueError("O fck de projeto deve ser um valor positivo.")
+
+    tipo_corpo = tipo_corpo.lower()
+
+    # === 2. Conversão de Unidades ===
+    cargas_N = [c * 1000 for c in cargas_kN]
+    print(f"\nDetalhes da Conversão:")
+    print(f"  ▸ Cargas de Ruptura (kN): {cargas_kN}")
+    print(f"  ▸ Cargas Convertidas (N): {cargas_N}")
+
+    # === 3. Cálculo da Área de Ruptura ===
+    if tipo_corpo == "cilindro":
+        area_mm2 = (math.pi * (diametro_mm ** 2)) / 4
+        print(f"  ▸ Cálculo da Área (Cilindro): (π * {diametro_mm}² ) / 4 = {area_mm2:.2f} mm²")
+    elif tipo_corpo == "cubo":
+        area_mm2 = diametro_mm ** 2
+        print(f"  ▸ Cálculo da Área (Cubo): {diametro_mm}² = {area_mm2:.2f} mm²")
+    print(f"  ▸ Área da base utilizada no cálculo: {area_mm2:.2f} mm²")
+
+    # === 4. Cálculo das Resistências Individuais ===
+    resistencias = [carga / area_mm2 for carga in cargas_N]
+    print("\nDetalhes do Cálculo das Resistências Individuais (P/A):")
+    for i, (carga, res) in enumerate(zip(cargas_N, resistencias), 1):
+        print(f"  ▸ Amostra {i}: {carga:.2f} N / {area_mm2:.2f} mm² = {res:.2f} MPa")
+
+    # === 5. Estatísticas e Determinação do fck Estimado ===
+    fcm = statistics.mean(resistencias)
+    desvio_padrao = statistics.stdev(resistencias) if len(resistencias) > 1 else 0
+    fck_estimado = fcm - 1.65 * desvio_padrao
+
+    print("\nDetalhes das Estatísticas:")
+    print(f"  ▸ fcm (Resistência Média) = Soma das Resistências / Número de Amostras = {fcm:.2f} MPa")
+    print(f"  ▸ σ (Desvio Padrão) = Medida da dispersão dos resultados = {desvio_padrao:.2f} MPa")
+    print(f"  ▸ fck Estimado = fcm - 1.65 * σ = {fcm:.2f} - 1.65 * {desvio_padrao:.2f} = {fck_estimado:.2f} MPa")
+
+    # === 6. RELATÓRIO TÉCNICO FINAL ===
+    print("\n" + "="*50)
+    print(" **RELATÓRIO TÉCNICO - ENSAIO DE COMPRESSÃO DE CONCRETO**")
+    print("="*50 + "\n")
+
+    print(f" **Tipo do Corpo de Prova:** {tipo_corpo.upper()}")
+    print(f" **Diâmetro/Lado do Corpo de Prova:** {diametro_mm} mm")
+    print(f" **Idade do Concreto no Ensaio:** {idade_dias} dias")
+    print(f" **fck de Projeto (Esperado):** {fck_projeto:.2f} MPa")
+    print(f" **Área da Base Utilizada no Cálculo:** {area_mm2:.2f} mm²\n")
+
+    print("--- Resultados Detalhados das Amostras ---")
+    for i, r in enumerate(resistencias, 1):
+        print(f"  ▸ Amostra {i}: {r:.2f} MPa (Carga de ruptura: {cargas_kN[i-1]:.2f} kN)")
+
+    print("\n--- Resultados Estatísticos ---")
+    print(f" **fcm (Resistência Média):** {fcm:.2f} MPa")
+    print(f" **σ (Desvio Padrão):** {desvio_padrao:.2f} MPa")
+    print(f" **fck Estimado (Característico):** {fck_estimado:.2f} MPa\n")
+
+    # === 7. Avaliação e Observações ===
+    print("--- **AVALIAÇÃO DO DESEMPENHO DO TRAÇO** ---")
+    if fck_estimado >= fck_projeto:
+        print(" **APROVADO:** O concreto atendeu e superou a resistência de projeto esperada. Excelente resultado!")
+    elif fck_estimado >= fck_projeto * 0.9:
+        print(f" **ATENÇÃO:** A resistência (fck estimado: {fck_estimado:.2f} MPa) está abaixo do fck de projeto ({fck_projeto:.2f} MPa), mas ainda dentro da margem de tolerância de 10% da NBR 12655.")
+    else:
+        print(f" **REPROVADO:** O concreto não atingiu a resistência mínima esperada (fck estimado: {fck_estimado:.2f} MPa vs. fck de projeto: {fck_projeto:.2f} MPa). É crucial revisar e ajustar o traço (cimento, água, aditivos, agregados) para garantir a segurança e durabilidade.")
+    print("\n" + "="*50 + "\n")
+
+    return resistencias, fcm, fck_estimado
+
+# Os valores abaixo podem ser alterados para simular circustâncias diferentes das apresentadas.
+
+# --- Parâmetros para Análise de Resistência do Concreto (Ensaio) ---
+# Lista das cargas de ruptura em quilonewtons (kN) para cada corpo de prova.
+PARAM_CARGAS_RUPTURA_KN: List[float] = [650.0, 670.0, 660.0, 645.0, 675.0]
+
+# Diâmetro da base do corpo de prova em milímetros (mm).
+PARAM_DIAMETRO_OU_LADO_MM: float = 150.0
+
+# Tipo do corpo de prova. Use 'cilindro' ou 'cubo'.
+PARAM_TIPO_CORPO_PROVA: str = "cilindro"
+
+# Idade do concreto no momento do ensaio em dias (ex: 7, 14, 28).
+PARAM_IDADE_ENSAIO_DIAS: int = 28
+
+# FCK (resistência característica) de projeto em MegaPascal (MPa).
+PARAM_FCK_PROJETO_MPA: float = 30.0
+
+# --- Parâmetros para Estimativa de Dosagem do Concreto ---
+# FCK desejado para o concreto que se quer dosar.
+PARAM_FCK_DESEJADO_DOSAGEM_MPA: float = 30.0 # Exemplo: dosar para 30 MPa
+
+# Abatimento (slump) desejado em cm para a dosagem.
+# Valores típicos: 5-10 cm para concreto convencional, 10-15 cm para bombeável.
+PARAM_ABATIMENTO_DESEJADO_CM: float = 10.0 # Exemplo: 10 cm (consistência plástica)
+
+
+# --- EXECUÇÃO DAS FUNÇÕES ---
+print("* Previsão da Resistência a Compressão do Concreto *")
+
+# 1. Executa a Análise de Resistência (se houver dados de ensaio)
+print("\n" + "#"*50)
+print("--- INICIANDO ANÁLISE DE RESISTÊNCIA DE CONCRETO (ENSAIO) ---")
+print("#"*50 + "\n")
+try:
+    resistencias_individuais, fcm_calculado, fck_estimado_calculado = calcular_resistencia_concreto(
+        cargas_kN=PARAM_CARGAS_RUPTURA_KN,
+        diametro_mm=PARAM_DIAMETRO_OU_LADO_MM,
+        tipo_corpo=PARAM_TIPO_CORPO_PROVA,
+        idade_dias=PARAM_IDADE_ENSAIO_DIAS,
+        fck_projeto=PARAM_FCK_PROJETO_MPA
+    )
+except ValueError as e:
+    print(f"\n ERRO NA ENTRADA DE DADOS PARA ANÁLISE DE RESISTÊNCIA: {e}")
+except Exception as e:
+    print(f"\n Ocorreu um erro inesperado na análise de resistência: {e}")
+
+# 2. Executa a Estimativa de Dosagem (se um FCK desejado for fornecido)
+print("\n" + "~"*60)
+print("--- INICIANDO ESTIMATIVA DE DOSAGEM DE CONCRETO (BASE NORMA) ---")
+print("~"*60 + "\n")
+try:
+    dosagem_resultados = estimar_dosagem_concreto_norma_simplificada(
+        fck_desejado_mpa=PARAM_FCK_DESEJADO_DOSAGEM_MPA,
+        abatimento_cm=PARAM_ABATIMENTO_DESEJADO_CM
+    )
+except ValueError as e:
+    print(f"\n ERRO NA ENTRADA DE DADOS PARA ESTIMATIVA DE DOSAGEM: {e}")
+except Exception as e:
+    print(f"\n Ocorreu um erro inesperado na estimativa de dosagem: {e}")
